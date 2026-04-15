@@ -204,7 +204,7 @@ const KpiCards = ({ snapshot }: { snapshot: DashboardSnapshot }) => {
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 px-4 md:hidden">
+      <div className="grid grid-cols-1 gap-4 px-4 min-[1060px]:hidden">
         {mobileCards.map((item) => (
           <Card key={item.label} className={getCardClassName(item.tone)}>
             <CardHeader className="pb-3">
@@ -220,7 +220,7 @@ const KpiCards = ({ snapshot }: { snapshot: DashboardSnapshot }) => {
           </Card>
         ))}
       </div>
-      <div className="hidden gap-4 px-4 md:grid md:grid-cols-2 xl:grid-cols-4 lg:px-6">
+      <div className="hidden gap-4 px-4 min-[1060px]:grid min-[1060px]:grid-cols-2 xl:grid-cols-4 lg:px-6">
         {cards.map((item) => (
           <Card key={item.label} className={getCardClassName(item.tone)}>
             <CardHeader>

@@ -437,9 +437,9 @@ export function ProductAnalyticsFilters({
           ))}
         </SelectContent>
       </Select>
-      <Button type="button" variant="outline" size="sm" onClick={onReset} className="w-9 px-0 sm:w-auto sm:px-3">
+      <Button type="button" variant="outline" size="sm" onClick={onReset} className="w-9 px-0 min-[1060px]:w-auto min-[1060px]:px-3">
         <RotateCcw />
-        <span className="hidden sm:inline">Сбросить</span>
+        <span className="hidden min-[1060px]:inline">Сбросить</span>
       </Button>
     </div>
   );
