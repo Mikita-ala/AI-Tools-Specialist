@@ -15,6 +15,10 @@ export type DashboardStats = {
   totalRevenue: number;
   averageOrderValue: number;
   highValueOrders: number;
+  todayOrders: number;
+  todayRevenue: number;
+  todayAverageOrderValue: number;
+  todayHighValueOrders: number;
 };
 
 export type DailyMetric = {
@@ -49,11 +53,14 @@ const toBreakdown = (counts: Map<string, number>) =>
     .sort((left, right) => right.value - left.value)
     .slice(0, 5);
 
+const getTodayKey = () => new Date().toISOString().slice(0, 10);
+
 export const buildDashboardSnapshot = (orders: DashboardOrderRecord[]): DashboardSnapshot => {
   const totalOrders = orders.length;
   const totalRevenue = orders.reduce((sum, order) => sum + order.totalAmount, 0);
   const highValueOrders = orders.filter((order) => isHighValueOrder(order.totalAmount)).length;
   const averageOrderValue = totalOrders === 0 ? 0 : Math.round(totalRevenue / totalOrders);
+  const todayKey = getTodayKey();
 
   const dailyMap = new Map<string, DailyMetric>();
   const cityMap = new Map<string, number>();
@@ -74,6 +81,11 @@ export const buildDashboardSnapshot = (orders: DashboardOrderRecord[]): Dashboar
   }
 
   const daily = Array.from(dailyMap.values()).sort((left, right) => left.date.localeCompare(right.date));
+  const todayDaily = dailyMap.get(todayKey) ?? { date: todayKey, orders: 0, revenue: 0 };
+  const todayOrders = orders.filter((order) => formatDateKey(order.crmCreatedAt) === todayKey);
+  const todayHighValueOrders = todayOrders.filter((order) => isHighValueOrder(order.totalAmount)).length;
+  const todayAverageOrderValue =
+    todayDaily.orders === 0 ? 0 : Math.round(todayDaily.revenue / todayDaily.orders);
 
   const recentOrders = [...orders]
     .sort((left, right) => {
@@ -89,6 +101,10 @@ export const buildDashboardSnapshot = (orders: DashboardOrderRecord[]): Dashboar
       totalRevenue,
       averageOrderValue,
       highValueOrders,
+      todayOrders: todayDaily.orders,
+      todayRevenue: todayDaily.revenue,
+      todayAverageOrderValue,
+      todayHighValueOrders,
     },
     daily,
     cities: toBreakdown(cityMap),
