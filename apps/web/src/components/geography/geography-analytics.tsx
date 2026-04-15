@@ -2,10 +2,11 @@
 
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
-import { Building2, MapPinned, PackageSearch, ReceiptText, TrendingUp } from "lucide-react";
+import { Building2, MapPinned, PackageSearch, ReceiptText, RotateCcw, TrendingUp } from "lucide-react";
 
 import { DateRangePicker } from "@/components/shared/date-range-picker";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -82,44 +83,55 @@ export function GeographyAnalytics({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Город</TableHead>
-                  <TableHead className="text-right">Заказы</TableHead>
-                  <TableHead className="text-right">Выручка</TableHead>
-                  <TableHead className="text-right">Средний чек</TableHead>
-                  <TableHead>Топ-товары</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cityMetrics.length === 0 ? (
-                  <EmptyRow colSpan={5} />
-                ) : (
-                  cityMetrics.map((city) => (
+            {cityMetrics.length === 0 ? (
+              <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                <PackageSearch className="mx-auto mb-2 size-5" />
+                Нет данных по выбранным фильтрам.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Город</TableHead>
+                    <TableHead className="text-right">Заказы</TableHead>
+                    <TableHead className="text-right">Выручка</TableHead>
+                    <TableHead className="text-right">Средний чек</TableHead>
+                    <TableHead>Топ-товары</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cityMetrics.map((city, index) => (
                     <TableRow key={city.city}>
-                      <TableCell className="font-medium">{city.city}</TableCell>
-                      <TableCell className="text-right">{city.ordersCount}</TableCell>
-                      <TableCell className="text-right">{money.format(city.revenue)} ₸</TableCell>
-                      <TableCell className="text-right">{money.format(city.averageCheck)} ₸</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          {city.topProducts.length === 0 ? (
-                            <span className="text-sm text-muted-foreground">Нет данных</span>
-                          ) : (
-                            city.topProducts.map((product) => (
-                              <Badge key={`${city.city}-${product.productName}`} variant="outline">
-                                {product.productName} x{product.quantity}
-                              </Badge>
-                            ))
-                          )}
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <span>{city.city}</span>
+                          {/* {index === 0 ? <Badge variant="info">Лидер</Badge> : null} */}
                         </div>
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">{city.ordersCount}</TableCell>
+                      <TableCell className="text-right tabular-nums">{money.format(city.revenue)} ₸</TableCell>
+                      <TableCell className="text-right tabular-nums">{money.format(city.averageCheck)} ₸</TableCell>
+                      <TableCell className="whitespace-normal">
+                        {city.topProducts.length === 0 ? (
+                          <span className="text-sm text-muted-foreground">Нет данных</span>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            {city.topProducts.map((product) => (
+                              <div
+                                key={`${city.city}-${product.productName}`}
+                                className="text-sm leading-5 text-foreground"
+                              >
+                                {product.productName} x{product.quantity}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -153,40 +165,6 @@ export function GeographyAnalytics({
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Что заказывают по городам</CardTitle>
-              <CardDescription>Самые частые товары в каждом городе.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Город</TableHead>
-                    <TableHead>Лидер</TableHead>
-                    <TableHead className="text-right">Кол-во</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {cityMetrics.length === 0 ? (
-                    <EmptyRow colSpan={3} />
-                  ) : (
-                    cityMetrics.slice(0, 8).map((city) => {
-                      const leadProduct = city.topProducts[0];
-
-                      return (
-                        <TableRow key={`${city.city}-top-product`}>
-                          <TableCell className="font-medium">{city.city}</TableCell>
-                          <TableCell>{leadProduct?.productName ?? "Нет данных"}</TableCell>
-                          <TableCell className="text-right">{leadProduct?.quantity ?? 0}</TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>
@@ -214,8 +192,10 @@ export function GeographyAnalyticsFilters({
     <div className="flex flex-wrap items-center justify-end gap-2">
       <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
       <Select value={source} onValueChange={(value) => onSourceChange(value ?? "all")}>
-        <SelectTrigger className="h-9 w-[200px]">
-          <SelectValue placeholder="Источник">{sourceLabel}</SelectValue>
+        <SelectTrigger className="h-9 w-[160px]">
+          <SelectValue className="truncate" placeholder="Источник">
+            {sourceLabel}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Все источники</SelectItem>
@@ -226,13 +206,10 @@ export function GeographyAnalyticsFilters({
           ))}
         </SelectContent>
       </Select>
-      <button
-        type="button"
-        onClick={onReset}
-        className="h-9 rounded-lg border px-3 text-sm text-foreground transition-colors hover:bg-muted"
-      >
-        Сбросить
-      </button>
+      <Button type="button" variant="outline" size="sm" onClick={onReset} className="w-9 px-0 sm:w-auto sm:px-3">
+        <RotateCcw />
+        <span className="hidden sm:inline">Сбросить</span>
+      </Button>
     </div>
   );
 }
@@ -259,16 +236,5 @@ function SummaryCard({
       </CardHeader>
       <CardContent className="pt-0 text-sm text-muted-foreground">{description}</CardContent>
     </Card>
-  );
-}
-
-function EmptyRow({ colSpan }: { colSpan: number }) {
-  return (
-    <TableRow>
-      <TableCell colSpan={colSpan} className="py-8 text-center text-muted-foreground">
-        <PackageSearch className="mx-auto mb-2 size-5" />
-        Нет данных по выбранным фильтрам.
-      </TableCell>
-    </TableRow>
   );
 }

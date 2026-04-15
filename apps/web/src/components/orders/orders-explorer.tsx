@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Eye, Search } from "lucide-react";
+import { Eye, RotateCcw, Search } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import type { OrderRecord } from "@/lib/orders-data";
@@ -256,13 +256,10 @@ export function OrdersSearchFilters({
         </PopoverContent>
       </Popover>
       <DateRangePicker value={dateRange} onChange={onDateRangeChange} />
-      <button
-        type="button"
-        onClick={onReset}
-        className="h-9 rounded-lg border px-3 text-sm text-foreground transition-colors hover:bg-muted"
-      >
-        Сбросить
-      </button>
+      <Button type="button" variant="outline" size="sm" onClick={onReset} className="w-9 px-0 sm:w-auto sm:px-3">
+        <RotateCcw />
+        <span className="hidden sm:inline">Сбросить</span>
+      </Button>
     </div>
   );
 }
