@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import {
+  BellRing,
   LayoutDashboard,
   MapPinned,
   Package,
   ReceiptText,
+  Settings2,
 } from "lucide-react";
 
 import {
@@ -13,7 +15,6 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -33,7 +34,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 
-type AdminSection = "overview" | "orders" | "products" | "sources" | "geography";
+type AdminSection = "overview" | "orders" | "products" | "sources" | "geography" | "settings";
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -50,6 +51,7 @@ const sectionTitle: Record<AdminSection, string> = {
   products: "Товары",
   sources: "Источники",
   geography: "География",
+  settings: "Настройки",
 };
 
 export function AdminLayout({
@@ -108,9 +110,21 @@ export function AdminLayout({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
+                  <SidebarMenuButton isActive={section === "sources"} render={<Link href="/sources" />}>
+                    <BellRing />
+                    <span>Источники</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
                   <SidebarMenuButton isActive={section === "geography"} render={<Link href="/geography" />}>
                     <MapPinned />
                     <span>География</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive={section === "settings"} render={<Link href="/settings" />}>
+                    <Settings2 />
+                    <span>Настройки</span>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -125,10 +139,6 @@ export function AdminLayout({
           <Separator orientation="vertical" className="mx-2 h-4 data-vertical:self-auto" />
           <Breadcrumb>
             <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbPage>Аналитика продаж</BreadcrumbPage>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
               <BreadcrumbItem>
                 <BreadcrumbPage>{sectionTitle[section]}</BreadcrumbPage>
               </BreadcrumbItem>

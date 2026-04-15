@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import type { DateRange } from "react-day-picker";
-import { ChevronDown, ChevronUp, PackageSearch } from "lucide-react";
+import { ChevronDown, ChevronUp, PackageSearch, RotateCcw } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { DateRangePicker } from "@/components/shared/date-range-picker";
 import { isValueWithinDateRange } from "@/lib/date-range";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,14 +19,23 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { translateSource } from "@/lib/retailcrm-labels";
-import { buildProductMetrics, type ProductMetric } from "@/lib/product-analytics";
+import { buildProductDetail, buildProductMetrics, type ProductMetric } from "@/lib/product-analytics";
 import type { OrderRecord } from "@/lib/orders-data";
 
 const money = new Intl.NumberFormat("ru-RU");
 const DETAILS_PAGE_SIZE = 8;
+const productChartConfig = {
+  quantity: { label: "Продано единиц", color: "var(--color-success)" },
+  revenue: { label: "Выручка", color: "var(--color-primary)" },
+};
 
 type ProductAnalyticsProps = {
   orders: OrderRecord[];
@@ -35,6 +46,19 @@ type ProductAnalyticsProps = {
 const sortByRevenue = (items: ProductMetric[]) => [...items].sort((left, right) => right.revenue - left.revenue);
 const sortByQuantity = (items: ProductMetric[]) => [...items].sort((left, right) => right.quantitySold - left.quantitySold);
 const sortByAverageCheck = (items: ProductMetric[]) => [...items].sort((left, right) => right.averageCheck - left.averageCheck);
+const formatProductChartTooltipValue = (value: number | string | Array<number | string>, key: string) => {
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
+
+  if (key === "revenue") {
+    return `${money.format(Number(normalizedValue))} ₸`;
+  }
+
+  if (key === "quantity") {
+    return `${normalizedValue} шт.`;
+  }
+
+  return String(normalizedValue);
+};
 
 export function ProductAnalytics({ orders, dateRange, source }: ProductAnalyticsProps) {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
@@ -74,6 +98,10 @@ export function ProductAnalytics({ orders, dateRange, source }: ProductAnalytics
         return rightTime - leftTime;
       });
   }, [filteredOrders, selectedProduct]);
+  const selectedProductDetail = useMemo(
+    () => (selectedProduct ? buildProductDetail(filteredOrders, selectedProduct) : null),
+    [filteredOrders, selectedProduct],
+  );
 
   const totalRevenue = metrics.reduce((sum, metric) => sum + metric.revenue, 0);
   const totalUnits = metrics.reduce((sum, metric) => sum + metric.quantitySold, 0);
@@ -150,9 +178,139 @@ export function ProductAnalytics({ orders, dateRange, source }: ProductAnalytics
         <Card>
           <CardHeader>
             <CardTitle>{selectedProduct}</CardTitle>
-            <CardDescription>Заказы, в которых встречается выбранный товар.</CardDescription>
+            <CardDescription>Подробная аналитика по выбранному товару.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="grid gap-6">
+            {selectedProductDetail ? (
+              <>
+                <div className="grid gap-4 xl:grid-cols-4">
+                  <Card className="border-success/30 bg-success/5">
+                    <CardHeader>
+                      <CardDescription>Продано единиц</CardDescription>
+                      <CardTitle>{selectedProductDetail.quantitySold}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card className="border-primary/30 bg-primary/5">
+                    <CardHeader>
+                      <CardDescription>Выручка</CardDescription>
+                      <CardTitle>{money.format(selectedProductDetail.revenue)} ₸</CardTitle>
+                    </CardHeader>
+                  </Card>
+                  <Card>
+                    <CardHeader>
+                      <CardDescription>Заказов с товаром</CardDescription>
+                      <CardTitle>{selectedProductDetail.ordersCount}</CardTitle>
+                    </CardHeader>
+                  </Card>
+                    <Card className="border-info/30 bg-info/5">
+                    <CardHeader>
+                      <CardDescription>Средний чек</CardDescription>
+                      <CardTitle>{money.format(selectedProductDetail.averageCheck)} ₸</CardTitle>
+                    </CardHeader>
+                  </Card>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(320px,0.7fr)]">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Тренд товара</CardTitle>
+                      <CardDescription>Количество и выручка по дням.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ChartContainer config={productChartConfig} className="h-[260px] w-full">
+                        <AreaChart data={selectedProductDetail.daily}>
+                          <CartesianGrid vertical={false} />
+                          <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
+                          <YAxis yAxisId="revenue" hide />
+                          <YAxis yAxisId="quantity" hide />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                formatter={(value, _name, item) => {
+                                  const dataKey = String(item.dataKey ?? item.name ?? "");
+
+                                  return (
+                                    <>
+                                      <span className="text-muted-foreground">
+                                        {productChartConfig[dataKey as keyof typeof productChartConfig]?.label ?? item.name}
+                                      </span>
+                                      <span className="min-w-[7ch] text-right font-mono font-medium text-foreground tabular-nums">
+                                        {formatProductChartTooltipValue(value, dataKey)}
+                                      </span>
+                                    </>
+                                  );
+                                }}
+                              />
+                            }
+                          />
+                          <Area
+                            yAxisId="revenue"
+                            dataKey="revenue"
+                            type="monotone"
+                            stroke="var(--color-revenue)"
+                            fill="var(--color-revenue)"
+                            fillOpacity={0.15}
+                          />
+                          <Area
+                            yAxisId="quantity"
+                            dataKey="quantity"
+                            type="monotone"
+                            stroke="var(--color-quantity)"
+                            fill="var(--color-quantity)"
+                            fillOpacity={0.2}
+                          />
+                        </AreaChart>
+                      </ChartContainer>
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid gap-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Источники</CardTitle>
+                        <CardDescription>Где чаще покупают этот товар.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-3">
+                        {selectedProductDetail.sources.map((item) => (
+                          <div key={item.label} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div className="grid gap-1">
+                              <span className="text-sm font-medium">{translateSource(item.label)}</span>
+                              <span className="text-xs text-muted-foreground">{item.value} шт.</span>
+                            </div>
+                            <Badge variant="info">{money.format(item.revenue)} ₸</Badge>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Города</CardTitle>
+                        <CardDescription>Где товар продаётся лучше всего.</CardDescription>
+                      </CardHeader>
+                      <CardContent className="grid gap-3">
+                        {selectedProductDetail.cities.map((item) => (
+                          <div key={item.label} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                            <div className="grid gap-1">
+                              <span className="text-sm font-medium">{item.label}</span>
+                              <span className="text-xs text-muted-foreground">{item.value} шт.</span>
+                            </div>
+                            <Badge variant="success">{money.format(item.revenue)} ₸</Badge>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </>
+            ) : null}
+
+            <Card className="border-dashed">
+              <CardHeader>
+                <CardTitle>История заказов с этим товаром</CardTitle>
+                <CardDescription>Связанные заказы в текущем диапазоне.</CardDescription>
+              </CardHeader>
+              <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -185,6 +343,8 @@ export function ProductAnalytics({ orders, dateRange, source }: ProductAnalytics
                 )}
               </TableBody>
             </Table>
+              </CardContent>
+            </Card>
             {selectedProductOrders.length > 0 ? (
               <div className="mt-4 flex flex-col gap-3 border-t pt-4 md:flex-row md:items-center md:justify-between">
                 <div className="text-sm text-muted-foreground">
@@ -277,9 +437,10 @@ export function ProductAnalyticsFilters({
           ))}
         </SelectContent>
       </Select>
-      <button type="button" onClick={onReset} className="h-9 rounded-lg border px-3 text-sm text-foreground transition-colors hover:bg-muted">
-        Сбросить
-      </button>
+      <Button type="button" variant="outline" size="sm" onClick={onReset} className="w-9 px-0 min-[1060px]:w-auto min-[1060px]:px-3">
+        <RotateCcw />
+        <span className="hidden min-[1060px]:inline">Сбросить</span>
+      </Button>
     </div>
   );
 }

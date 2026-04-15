@@ -27,7 +27,7 @@ export function DateRangePicker({
         disabled={disabled}
         className={cn(
           buttonVariants({ variant: "outline", size: "sm" }),
-          "min-w-[260px] justify-start px-2.5 text-left font-normal",
+          "w-9 justify-center px-0 text-left font-normal min-[1060px]:min-w-[260px] min-[1060px]:w-auto min-[1060px]:justify-start min-[1060px]:px-2.5 [&>span]:hidden min-[1060px]:[&>span]:inline-flex",
           className,
         )}
       >

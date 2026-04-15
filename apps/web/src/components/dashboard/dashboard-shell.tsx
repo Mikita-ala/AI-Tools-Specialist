@@ -6,15 +6,14 @@ import { buildDashboardSnapshot, type DashboardOrderRecord, type DashboardSnapsh
 import type { DateRange } from "react-day-picker";
 import {
   BellRing,
-  ChartColumnIncreasing,
   LayoutDashboard,
   MapPinned,
   Package,
   ReceiptText,
   RefreshCw,
-  TrendingUp,
+  Settings2,
 } from "lucide-react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { DateRangePicker } from "@/components/shared/date-range-picker";
 import { createDateRangeFromValues, formatDateRangeLabel, isValueWithinDateRange } from "@/lib/date-range";
@@ -22,10 +21,8 @@ import { translateSource, translateStatus } from "@/lib/retailcrm-labels";
 import { Badge } from "@/components/ui/badge";
 import {
   Breadcrumb,
-  BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbPage,
-  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
@@ -73,7 +70,7 @@ const chartConfig = {
 type DashboardShellProps = {
   orders: DashboardOrderRecord[];
   state: "missing-env" | "empty" | "ready";
-  section: "overview" | "orders" | "products" | "sources" | "geography";
+  section: "overview" | "orders" | "products" | "sources" | "geography" | "settings";
 };
 
 const sectionMeta = {
@@ -102,71 +99,138 @@ const sectionMeta = {
     description: "Города, в которых спрос выше всего.",
     breadcrumb: "География",
   },
+  settings: {
+    title: "Настройки",
+    description: "Порог уведомлений, получатели и правила.",
+    breadcrumb: "Настройки",
+  },
 } as const;
 
-const formatTrend = (value: number | null) => {
-  if (value === null || Number.isNaN(value)) return "Без базы";
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}%`;
-};
+const formatOverviewChartTooltipValue = (value: number | string | Array<number | string>, key: string) => {
+  const normalizedValue = Array.isArray(value) ? value[0] : value;
 
-const getTrend = (values: number[]) => {
-  if (values.length < 2) return null;
-  const midpoint = Math.floor(values.length / 2);
-  const previous = values.slice(0, midpoint).reduce((sum, value) => sum + value, 0);
-  const current = values.slice(midpoint).reduce((sum, value) => sum + value, 0);
-  if (previous === 0) return current === 0 ? 0 : null;
-  return ((current - previous) / previous) * 100;
+  if (key === "revenue") {
+    return `${money.format(Number(normalizedValue))} ₸`;
+  }
+
+  if (key === "orders") {
+    return `${normalizedValue} заказов`;
+  }
+
+  return String(normalizedValue);
 };
 
 const KpiCards = ({ snapshot }: { snapshot: DashboardSnapshot }) => {
-  const orderTrend = getTrend(snapshot.daily.map((item) => item.orders));
-  const revenueTrend = getTrend(snapshot.daily.map((item) => item.revenue));
-
   const cards = [
     {
       label: "Общая выручка",
       value: `${money.format(snapshot.stats.totalRevenue)} ₸`,
-      trend: formatTrend(revenueTrend),
-      icon: TrendingUp,
+      tone: "success" as const,
     },
     {
       label: "Всего заказов",
       value: compact.format(snapshot.stats.totalOrders),
-      trend: formatTrend(orderTrend),
-      icon: ReceiptText,
+      tone: "info" as const,
     },
     {
       label: "Средний чек",
       value: `${money.format(snapshot.stats.averageOrderValue)} ₸`,
-      trend: "По всем заказам",
-      icon: ChartColumnIncreasing,
+      tone: "default" as const,
     },
     {
       label: "Крупные заказы",
       value: compact.format(snapshot.stats.highValueOrders),
-      trend: "Сумма выше 50 000 ₸",
-      icon: BellRing,
+      tone: "warning" as const,
+    },
+    {
+      label: "Заказов сегодня",
+      value: compact.format(snapshot.stats.todayOrders),
+      tone: "info" as const,
+    },
+    {
+      label: "Выручка сегодня",
+      value: `${money.format(snapshot.stats.todayRevenue)} ₸`,
+      tone: "success" as const,
+    },
+    {
+      label: "Средний чек сегодня",
+      value: `${money.format(snapshot.stats.todayAverageOrderValue)} ₸`,
+      tone: "default" as const,
+    },
+    {
+      label: "Крупные сегодня",
+      value: compact.format(snapshot.stats.todayHighValueOrders),
+      tone: "danger" as const,
     },
   ];
 
+  const mobileCards = [
+    {
+      label: "Выручка",
+      total: `${money.format(snapshot.stats.totalRevenue)} ₸`,
+      today: `${money.format(snapshot.stats.todayRevenue)} ₸`,
+      tone: "success" as const,
+    },
+    {
+      label: "Заказы",
+      total: compact.format(snapshot.stats.totalOrders),
+      today: compact.format(snapshot.stats.todayOrders),
+      tone: "info" as const,
+    },
+    {
+      label: "Средний чек",
+      total: `${money.format(snapshot.stats.averageOrderValue)} ₸`,
+      today: `${money.format(snapshot.stats.todayAverageOrderValue)} ₸`,
+      tone: "default" as const,
+    },
+    {
+      label: "Крупные заказы",
+      total: compact.format(snapshot.stats.highValueOrders),
+      today: compact.format(snapshot.stats.todayHighValueOrders),
+      tone: "warning" as const,
+    },
+  ];
+
+  const getCardClassName = (tone: (typeof cards)[number]["tone"]) =>
+    tone === "success"
+      ? "border-success/20 bg-linear-to-t from-success/8 to-card shadow-xs dark:bg-card"
+      : tone === "warning"
+        ? "border-warning/20 bg-linear-to-t from-warning/10 to-card shadow-xs dark:bg-card"
+        : tone === "danger"
+          ? "border-danger/20 bg-linear-to-t from-danger/10 to-card shadow-xs dark:bg-card"
+          : tone === "info"
+            ? "border-info/20 bg-linear-to-t from-info/10 to-card shadow-xs dark:bg-card"
+            : "bg-linear-to-t from-primary/5 to-card shadow-xs dark:bg-card";
+
   return (
-    <div className="grid grid-cols-1 gap-4 px-4 md:grid-cols-2 xl:grid-cols-4 lg:px-6">
-      {cards.map((item) => (
-        <Card key={item.label} className="bg-linear-to-t from-primary/5 to-card shadow-xs dark:bg-card">
-          <CardHeader>
-            <CardDescription>{item.label}</CardDescription>
-            <CardTitle className="text-2xl font-semibold tabular-nums">{item.value}</CardTitle>
-            <CardAction>
-              <Badge variant="outline">
-                <item.icon data-icon="inline-start" />
-                {item.trend}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-4 px-4 min-[1060px]:hidden">
+        {mobileCards.map((item) => (
+          <Card key={item.label} className={getCardClassName(item.tone)}>
+            <CardHeader className="pb-3">
+              <CardDescription>{item.label}</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums">{item.total}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+                <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Сегодня</span>
+                <span className="text-sm font-medium tabular-nums">{item.today}</span>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <div className="hidden gap-4 px-4 min-[1060px]:grid min-[1060px]:grid-cols-2 xl:grid-cols-4 lg:px-6">
+        {cards.map((item) => (
+          <Card key={item.label} className={getCardClassName(item.tone)}>
+            <CardHeader>
+              <CardDescription>{item.label}</CardDescription>
+              <CardTitle className="text-2xl font-semibold tabular-nums">{item.value}</CardTitle>
+            </CardHeader>
+          </Card>
+        ))}
+      </div>
+    </>
   );
 };
 
@@ -229,12 +293,32 @@ const AppSidebar = ({
             </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
+                isActive={section === "sources"}
+                tooltip="Источники"
+                render={<Link href="/sources" />}
+              >
+                <BellRing />
+                <span>Источники</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
                 isActive={section === "geography"}
                 tooltip="География"
                 render={<Link href="/geography" />}
               >
                 <MapPinned />
                 <span>География</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={section === "settings"}
+                tooltip="Настройки"
+                render={<Link href="/settings" />}
+              >
+                <Settings2 />
+                <span>Настройки</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -259,16 +343,10 @@ const SiteHeader = ({
     <SidebarTrigger className="-ml-1" />
     <Separator orientation="vertical" className="mx-2 h-4 data-vertical:self-auto" />
     <Breadcrumb>
-        <BreadcrumbList>
-          <BreadcrumbItem>
-            <BreadcrumbPage>Аналитика продаж</BreadcrumbPage>
-          </BreadcrumbItem>
-          <BreadcrumbSeparator />
-          <BreadcrumbItem>
-            <BreadcrumbPage>{sectionMeta[section].breadcrumb}</BreadcrumbPage>
-          </BreadcrumbItem>
-        </BreadcrumbList>
-      </Breadcrumb>
+      <BreadcrumbList>
+        <BreadcrumbPage>{sectionMeta[section].breadcrumb}</BreadcrumbPage>
+      </BreadcrumbList>
+    </Breadcrumb>
     <div className="ml-auto flex items-center gap-2">
       <DateRangePicker value={dateRange} onChange={onDateRangeChange} disabled={disabled} />
     </div>
@@ -293,10 +371,45 @@ const OrdersInsightsSection = ({ snapshot }: { snapshot: DashboardSnapshot }) =>
             <AreaChart data={snapshot.daily}>
               <CartesianGrid vertical={false} />
               <XAxis dataKey="date" tickLine={false} axisLine={false} tickMargin={8} />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <YAxis yAxisId="revenue" hide />
+              <YAxis yAxisId="orders" hide />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={(value, _name, item) => {
+                      const dataKey = String(item.dataKey ?? item.name ?? "");
+
+                      return (
+                        <>
+                          <span className="text-muted-foreground">
+                            {chartConfig[dataKey as keyof typeof chartConfig]?.label ?? item.name}
+                          </span>
+                          <span className="min-w-[7ch] text-right font-mono font-medium text-foreground tabular-nums">
+                            {formatOverviewChartTooltipValue(value, dataKey)}
+                          </span>
+                        </>
+                      );
+                    }}
+                  />
+                }
+              />
               <ChartLegend content={<ChartLegendContent />} />
-              <Area type="monotone" dataKey="revenue" stroke="var(--color-revenue)" fill="var(--color-revenue)" fillOpacity={0.18} />
-              <Area type="monotone" dataKey="orders" stroke="var(--color-orders)" fill="var(--color-orders)" fillOpacity={0.08} />
+              <Area
+                yAxisId="revenue"
+                type="monotone"
+                dataKey="revenue"
+                stroke="var(--color-revenue)"
+                fill="var(--color-revenue)"
+                fillOpacity={0.18}
+              />
+              <Area
+                yAxisId="orders"
+                type="monotone"
+                dataKey="orders"
+                stroke="var(--color-orders)"
+                fill="var(--color-orders)"
+                fillOpacity={0.08}
+              />
             </AreaChart>
           </ChartContainer>
         </CardContent>
