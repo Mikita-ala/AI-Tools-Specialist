@@ -1,9 +1,16 @@
 node_modules/
+apps/*/node_modules/
+apps/*/.next/
+packages/*/node_modules/
+.turbo/
 .env
 .env.local
+.env.*.local
 __pycache__/
 *.pyc
 .venv/
 venv/
 .DS_Store
 .vercel/
+PLAN.md
+work.md

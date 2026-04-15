@@ -1,0 +1,27 @@
+{
+  "name": "gbc-analytics-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "check": "turbo build lint",
+    "dev:web": "npm run dev --workspace web",
+    "build:web": "npm run build --workspace web",
+    "lint:web": "npm run lint --workspace web",
+    "import:retailcrm": "npm run import:retailcrm --workspace web",
+    "export:retailcrm:catalog": "npm run export:retailcrm:catalog --workspace web",
+    "sync:retailcrm": "npm run sync:retailcrm --workspace web",
+    "sync:retailcrm:catalog": "npm run sync:retailcrm:catalog --workspace web",
+    "inspect:retailcrm": "npm run inspect:retailcrm --workspace web"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.8"
+  }
+}
