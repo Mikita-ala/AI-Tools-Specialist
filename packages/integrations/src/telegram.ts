@@ -4,18 +4,77 @@ const escapeHtml = (value: string) =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 
+const money = new Intl.NumberFormat("ru-RU");
+
+const statusLabels: Record<string, string> = {
+  new: "Новый",
+  complete: "Выполнен",
+  "partially-completed": "Выполнен частично",
+  "availability-confirmed": "Наличие подтверждено",
+  "offer-analog": "Предложить замену",
+  "ready-to-wait": "Готов ждать",
+  "waiting-for-arrival": "Ожидается поступление",
+  "client-confirmed": "Согласовано с клиентом",
+  prepayed: "Предоплата поступила",
+  "send-to-assembling": "Передано в комплектацию",
+  assembling: "Комплектуется",
+  "assembling-complete": "Укомплектован",
+  "send-to-delivery": "Передан в доставку",
+  delivering: "Доставляется",
+  redirect: "Доставка перенесена",
+  "ready-for-self-pickup": "Готов к самовывозу",
+  "arrived-in-pickup-point": "Прибыл в ПВЗ",
+  "no-call": "Недозвон",
+  "no-product": "Нет в наличии",
+  "already-buyed": "Купил в другом месте",
+  "delyvery-did-not-suit": "Не устроила доставка",
+  "prices-did-not-suit": "Не устроила цена",
+  "cancel-other": "Отменён",
+  return: "Возврат",
+};
+
+const sourceLabels: Record<string, string> = {
+  instagram: "Instagram",
+  google: "Google",
+  tiktok: "TikTok",
+  referral: "Рекомендации",
+  whatsapp: "WhatsApp",
+  telegram: "Telegram",
+  website: "Сайт",
+  unknown: "Неизвестно",
+};
+
+const translateStatus = (value: string) => statusLabels[value] ?? value;
+
+const translateSource = (value: string | null) => {
+  if (!value) return "Неизвестно";
+  const normalized = value.trim().toLowerCase();
+  return sourceLabels[normalized] ?? value;
+};
+
+const formatAmount = (value: number) => `${money.format(value)} ₸`;
+
 const formatItemsSummary = (
   items: Array<{
     productName: string;
     quantity: number;
+    unitPrice?: number;
+    lineTotal?: number;
   }>,
 ) => {
   if (items.length === 0) {
-    return "No items";
+    return "Состав заказа не указан";
   }
 
   return items
-    .map((item) => `• ${escapeHtml(item.productName)} × ${item.quantity}`)
+    .map((item) => {
+      const pricePart =
+        typeof item.unitPrice === "number" && typeof item.lineTotal === "number"
+          ? ` — ${formatAmount(item.unitPrice)} × ${item.quantity} = <b>${formatAmount(item.lineTotal)}</b>`
+          : ` × ${item.quantity}`;
+
+      return `• ${escapeHtml(item.productName)}${pricePart}`;
+    })
     .join("\n");
 };
 
@@ -29,19 +88,27 @@ export const buildNewOrderTelegramMessage = (input: {
   items: Array<{
     productName: string;
     quantity: number;
+    unitPrice?: number;
+    lineTotal?: number;
   }>;
-}) =>
-  [
-    "<b>New order</b>",
-    `Order: <b>#${escapeHtml(input.orderId)}</b>`,
-    `Customer: ${escapeHtml(input.customerName)}`,
-    `City: ${escapeHtml(input.city ?? "Unknown")}`,
-    `Amount: <b>${input.amount.toLocaleString("ru-RU")} ₸</b>`,
-    `Source: ${escapeHtml(input.source ?? "Unknown")}`,
-    `Status: ${escapeHtml(input.status)}`,
-    "Items:",
+}) => {
+  const totalUnits = input.items.reduce((sum, item) => sum + item.quantity, 0);
+
+  return [
+    "🔥 <b>Новый крупный заказ</b>",
+    "",
+    `Заказ: <b>#${escapeHtml(input.orderId)}</b>`,
+    `Клиент: <b>${escapeHtml(input.customerName)}</b>`,
+    `Город: ${escapeHtml(input.city ?? "Не указан")}`,
+    `Источник: ${escapeHtml(translateSource(input.source))}`,
+    `Статус: ${escapeHtml(translateStatus(input.status))}`,
+    `Сумма: <b>${formatAmount(input.amount)}</b>`,
+    `Позиции: ${input.items.length} | Единиц товара: ${totalUnits}`,
+    "",
+    "<b>Состав заказа:</b>",
     formatItemsSummary(input.items),
   ].join("\n");
+};
 
 export const sendTelegramMessage = async (input: {
   botToken: string;

@@ -1,4 +1,4 @@
-import { HIGH_VALUE_ALERT_RULE, isHighValueOrder, type NormalizedOrder } from "@gbc/domain";
+import { HIGH_VALUE_ALERT_RULE, type NormalizedOrder } from "@gbc/domain";
 import {
   buildNewOrderTelegramMessage,
   createOrderItemsPayload,
@@ -7,10 +7,22 @@ import {
 } from "@gbc/integrations";
 
 import { env, hasTelegramEnv } from "@/lib/env";
+import { getHighValueAlertSettings } from "@/lib/settings";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 const ALERT_RULE_KEY = HIGH_VALUE_ALERT_RULE.key;
 const DELETE_BATCH_SIZE = 500;
+
+type ExistingOrderRow = {
+  raw_payload: unknown;
+  status: string;
+  total_amount: number;
+  utm_source: string | null;
+  city: string | null;
+  address: string | null;
+  full_name: string;
+  crm_updated_at: string | null;
+};
 
 const buildRetailCrmOrderUrl = (order: NormalizedOrder) => {
   if (!env.retailCrmBaseUrl) {
@@ -34,8 +46,81 @@ const buildRetailCrmOrderUrl = (order: NormalizedOrder) => {
   return `${baseUrl.replace(/\/$/, "")}/orders/${crmOrderId}/edit`;
 };
 
-export const upsertOrderAndItems = async (order: NormalizedOrder) => {
+const buildComparableOrderState = (order: NormalizedOrder) => ({
+  fullName: order.fullName,
+  city: order.city,
+  address: order.address,
+  status: order.status,
+  utmSource: order.utmSource,
+  totalAmount: order.totalAmount,
+  crmUpdatedAt: order.crmUpdatedAt,
+  items: order.items.map((item) => ({
+    productName: item.productName,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    lineTotal: item.lineTotal,
+  })),
+});
+
+const getChangedFields = (previous: ExistingOrderRow | null, next: NormalizedOrder) => {
+  if (!previous) {
+    return ["fullName", "city", "address", "status", "utmSource", "totalAmount", "crmUpdatedAt", "items"];
+  }
+
+  const previousState = {
+    fullName: previous.full_name,
+    city: previous.city,
+    address: previous.address,
+    status: previous.status,
+    utmSource: previous.utm_source,
+    totalAmount: previous.total_amount,
+    crmUpdatedAt: previous.crm_updated_at,
+    items: Array.isArray((previous.raw_payload as { items?: unknown[] } | null)?.items)
+      ? (previous.raw_payload as { items: unknown[] }).items
+      : [],
+  };
+  const nextState = buildComparableOrderState(next);
+
+  return Object.entries(nextState)
+    .filter(([key, value]) => JSON.stringify((previousState as Record<string, unknown>)[key]) !== JSON.stringify(value))
+    .map(([key]) => key);
+};
+
+const insertOrderSyncEvent = async (input: {
+  orderExternalId: string;
+  eventType: "created" | "updated" | "telegram_sent";
+  eventSource: string;
+  payloadBefore?: unknown;
+  payloadAfter?: unknown;
+  changedFields?: string[];
+}) => {
   const supabase = createAdminSupabaseClient();
+  const { error } = await supabase.from("order_sync_events").insert({
+    order_external_id: input.orderExternalId,
+    event_type: input.eventType,
+    event_source: input.eventSource,
+    payload_before: input.payloadBefore ?? null,
+    payload_after: input.payloadAfter ?? null,
+    changed_fields: input.changedFields ?? [],
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    throw new Error(`Failed to insert order sync event: ${error.message}`);
+  }
+};
+
+export const upsertOrderAndItems = async (order: NormalizedOrder, eventSource = "sync") => {
+  const supabase = createAdminSupabaseClient();
+  const { data: existingOrder, error: existingOrderError } = await supabase
+    .from("orders")
+    .select("raw_payload, status, total_amount, utm_source, city, address, full_name, crm_updated_at")
+    .eq("external_id", order.externalId)
+    .maybeSingle();
+
+  if (existingOrderError) {
+    throw new Error(`Failed to load existing order snapshot: ${existingOrderError.message}`);
+  }
 
   const { error: orderError } = await supabase
     .from("orders")
@@ -60,6 +145,26 @@ export const upsertOrderAndItems = async (order: NormalizedOrder) => {
     if (itemsError) {
       throw new Error(`Failed to insert order items: ${itemsError.message}`);
     }
+  }
+
+  const changedFields = getChangedFields((existingOrder as ExistingOrderRow | null) ?? null, order);
+  if (!existingOrder) {
+    await insertOrderSyncEvent({
+      orderExternalId: order.externalId,
+      eventType: "created",
+      eventSource,
+      payloadAfter: order.rawPayload,
+      changedFields,
+    });
+  } else if (changedFields.length > 0) {
+    await insertOrderSyncEvent({
+      orderExternalId: order.externalId,
+      eventType: "updated",
+      eventSource,
+      payloadBefore: existingOrder.raw_payload,
+      payloadAfter: order.rawPayload,
+      changedFields,
+    });
   }
 };
 
@@ -90,11 +195,17 @@ export const deleteOrdersMissingFromSnapshot = async (orders: NormalizedOrder[])
 };
 
 export const maybeSendNewOrderAlert = async (order: NormalizedOrder) => {
+  const settings = await getHighValueAlertSettings();
+
+  if (!settings.isEnabled) {
+    return { sent: false, reason: "rule-disabled" as const };
+  }
+
   if (order.status !== "new") {
     return { sent: false, reason: "not-new" as const };
   }
 
-  if (!isHighValueOrder(order.totalAmount)) {
+  if (order.totalAmount < settings.thresholdAmount) {
     return { sent: false, reason: "below-threshold" as const };
   }
 
@@ -118,6 +229,10 @@ export const maybeSendNewOrderAlert = async (order: NormalizedOrder) => {
     return { sent: false, reason: "already-sent" as const };
   }
 
+  if (settings.recipients.length === 0) {
+    return { sent: false, reason: "telegram-not-configured" as const };
+  }
+
   const message = buildNewOrderTelegramMessage({
     orderId: order.externalId,
     customerName: order.fullName || "Unknown customer",
@@ -129,13 +244,15 @@ export const maybeSendNewOrderAlert = async (order: NormalizedOrder) => {
   });
   const crmUrl = buildRetailCrmOrderUrl(order);
 
-  await sendTelegramMessage({
-    botToken: env.telegramBotToken,
-    chatId: env.telegramChatId,
-    text: message,
-    buttonText: crmUrl ? "Open in RetailCRM" : undefined,
-    buttonUrl: crmUrl,
-  });
+  for (const recipient of settings.recipients) {
+    await sendTelegramMessage({
+      botToken: env.telegramBotToken,
+      chatId: recipient.chatId,
+      text: message,
+      buttonText: crmUrl ? "Open in RetailCRM" : undefined,
+      buttonUrl: crmUrl,
+    });
+  }
 
   const { error: insertError } = await supabase.from("telegram_notifications").insert({
     order_external_id: order.externalId,
@@ -146,6 +263,18 @@ export const maybeSendNewOrderAlert = async (order: NormalizedOrder) => {
   if (insertError) {
     throw new Error(`Failed to record Telegram notification: ${insertError.message}`);
   }
+
+  await insertOrderSyncEvent({
+    orderExternalId: order.externalId,
+    eventType: "telegram_sent",
+    eventSource: "telegram",
+    payloadAfter: {
+      ruleKey: ALERT_RULE_KEY,
+      recipients: settings.recipients.map((recipient) => recipient.chatId),
+      thresholdAmount: settings.thresholdAmount,
+    },
+    changedFields: ["telegram_notification"],
+  });
 
   return { sent: true, reason: "sent" as const };
 };

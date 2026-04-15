@@ -17,7 +17,7 @@ const main = async () => {
   const orders = await client.fetchOrders();
 
   for (const order of orders) {
-    await upsertOrderAndItems(order);
+    await upsertOrderAndItems(order, "manual");
     await maybeSendNewOrderAlert(order);
   }
 

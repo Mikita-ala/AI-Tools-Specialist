@@ -1,9 +1,18 @@
 "use client";
 
-import { CalendarDays, Copy, MapPin, Phone, ShoppingBag, UserRound } from "lucide-react";
+import Link from "next/link";
+import {
+  CalendarDays,
+  Copy,
+  ExternalLink,
+  MapPin,
+  Phone,
+  ShoppingBag,
+  UserRound,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import type { OrderRecord } from "@/lib/orders-data";
+import type { OrderDetailRecord } from "@/lib/orders-data";
 import {
   translateOrderMethod,
   translateOrderType,
@@ -73,105 +82,204 @@ export function OrderDetailContent({
   order,
   compact = false,
 }: {
-  order: OrderRecord;
+  order: OrderDetailRecord;
   compact?: boolean;
 }) {
   return (
-    <div className={compact ? "grid gap-5" : "grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_380px]"}>
-      <Card>
-        <CardHeader>
-          <CardDescription>Основная информация</CardDescription>
-          <CardTitle>Карточка заказа</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge>{translateStatus(order.status)}</Badge>
-            <Badge variant="outline">{translateSource(order.utmSource)}</Badge>
-            <Badge variant="outline">{translateOrderMethod(order.orderMethod)}</Badge>
-          </div>
+    <div className={compact ? "grid gap-5" : "grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_380px]"}>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardDescription>Основная информация</CardDescription>
+            <CardTitle>Карточка заказа</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="info">{translateStatus(order.status)}</Badge>
+              <Badge variant="outline">{translateSource(order.utmSource)}</Badge>
+              <Badge variant="outline">{translateOrderMethod(order.orderMethod)}</Badge>
+              {order.crmOrderUrl ? (
+                <Button variant="outline" size="sm" nativeButton={false} render={<Link href={order.crmOrderUrl} target="_blank" />}>
+                  <ExternalLink className="mr-2 size-4" />
+                  Открыть в RetailCRM
+                </Button>
+              ) : null}
+            </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <UserRound className="size-4" />
-                Клиент
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                  <UserRound className="size-4" />
+                  Клиент
+                </div>
+                <div className="grid gap-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{order.fullName}</span>
+                  <CopyRow label="Email" value={order.email} emptyLabel="Email не указан" truncate />
+                  <CopyRow label="Телефон" value={order.phone} emptyLabel="Телефон не указан" />
+                </div>
               </div>
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{order.fullName}</span>
-                <CopyRow label="Email" value={order.email} emptyLabel="Email не указан" truncate />
-                <CopyRow label="Телефон" value={order.phone} emptyLabel="Телефон не указан" />
+
+              <div className="rounded-2xl border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                  <MapPin className="size-4" />
+                  Доставка
+                </div>
+                <div className="grid gap-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">{order.city ?? "Город не указан"}</span>
+                  <CopyRow label="Адрес" value={order.address} emptyLabel="Адрес не указан" />
+                </div>
               </div>
             </div>
 
-            <div className="rounded-2xl border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <MapPin className="size-4" />
-                Доставка
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                  <CalendarDays className="size-4" />
+                  Даты
+                </div>
+                <div className="grid gap-1 text-sm text-muted-foreground">
+                  <span>Создан: {formatDate(order.crmCreatedAt)}</span>
+                  <span>Обновлён: {formatDate(order.crmUpdatedAt)}</span>
+                  <span>Синк: {formatDate(order.syncedAt ?? null)}</span>
+                </div>
               </div>
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">{order.city ?? "Город не указан"}</span>
-                <CopyRow label="Адрес" value={order.address} emptyLabel="Адрес не указан" />
+
+              <div className="rounded-2xl border p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                  <Phone className="size-4" />
+                  Канал
+                </div>
+                <div className="grid gap-1 text-sm text-muted-foreground">
+                  <span>Источник: {translateSource(order.utmSource)}</span>
+                  <span>Тип заказа: {translateOrderType(order.orderType)}</span>
+                  <span>Метод заказа: {translateOrderMethod(order.orderMethod)}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <CalendarDays className="size-4" />
-                Даты
-              </div>
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span>Создан: {formatDate(order.crmCreatedAt)}</span>
-                <span>Обновлён: {formatDate(order.crmUpdatedAt)}</span>
-              </div>
+            <Separator />
+
+            <div className="grid gap-3">
+              <h3 className="flex items-center gap-2 text-base font-semibold">
+                <ShoppingBag className="size-4" />
+                Состав заказа
+              </h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Товар</TableHead>
+                    <TableHead>Количество</TableHead>
+                    <TableHead>Цена</TableHead>
+                    <TableHead className="text-right">Сумма</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {order.items.map((item) => (
+                    <TableRow key={`${order.externalId}-${item.productName}-${item.quantity}`}>
+                      <TableCell className="font-medium">{item.productName}</TableCell>
+                      <TableCell>{item.quantity}</TableCell>
+                      <TableCell>{money.format(item.unitPrice)} ₸</TableCell>
+                      <TableCell className="text-right">{money.format(item.lineTotal)} ₸</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
+          </CardContent>
+        </Card>
 
-            <div className="rounded-2xl border p-4">
-              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                <Phone className="size-4" />
-                Канал
-              </div>
-              <div className="grid gap-1 text-sm text-muted-foreground">
-                <span>Источник: {translateSource(order.utmSource)}</span>
-                <span>Тип заказа: {translateOrderType(order.orderType)}</span>
-                <span>Метод заказа: {translateOrderMethod(order.orderMethod)}</span>
-              </div>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="grid gap-3">
-            <h3 className="flex items-center gap-2 text-base font-semibold">
-              <ShoppingBag className="size-4" />
-              Состав заказа
-            </h3>
+        <Card>
+          <CardHeader>
+            <CardDescription>История клиента</CardDescription>
+            <CardTitle>Прошлые заказы</CardTitle>
+          </CardHeader>
+          <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Товар</TableHead>
-                  <TableHead>Количество</TableHead>
-                  <TableHead>Цена</TableHead>
+                  <TableHead>Заказ</TableHead>
+                  <TableHead>Дата</TableHead>
+                  <TableHead>Статус</TableHead>
+                  <TableHead>Источник</TableHead>
                   <TableHead className="text-right">Сумма</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {order.items.map((item) => (
-                  <TableRow key={`${order.externalId}-${item.productName}-${item.quantity}`}>
-                    <TableCell className="font-medium">{item.productName}</TableCell>
-                    <TableCell>{item.quantity}</TableCell>
-                    <TableCell>{money.format(item.unitPrice)} ₸</TableCell>
-                    <TableCell className="text-right">{money.format(item.lineTotal)} ₸</TableCell>
+                {order.customerOrderHistory.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      У клиента пока нет других заказов.
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  order.customerOrderHistory.map((historyOrder) => (
+                    <TableRow key={historyOrder.externalId}>
+                      <TableCell className="font-medium">
+                        <Link href={`/orders/${historyOrder.externalId}`} className="transition-colors hover:text-primary">
+                          #{historyOrder.externalId}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatDate(historyOrder.crmCreatedAt)}</TableCell>
+                      <TableCell>{translateStatus(historyOrder.status)}</TableCell>
+                      <TableCell>{translateSource(historyOrder.utmSource)}</TableCell>
+                      <TableCell className="text-right">{money.format(historyOrder.totalAmount)} ₸</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardDescription>История синхронизаций</CardDescription>
+            <CardTitle>Таймлайн заказа</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            {order.timeline.length === 0 ? (
+              <div className="rounded-2xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
+                Пока нет событий.
+              </div>
+            ) : (
+              order.timeline.map((event) => (
+                <div key={event.id} className="rounded-2xl border p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant={
+                        event.tone === "success"
+                          ? "success"
+                          : event.tone === "warning"
+                            ? "warning"
+                            : event.tone === "danger"
+                              ? "destructive"
+                              : event.tone === "info"
+                                ? "info"
+                                : "outline"
+                      }
+                    >
+                      {event.label}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">{formatDate(event.timestamp)}</span>
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">{event.description}</p>
+                  {event.changedFields.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {event.changedFields.map((field) => (
+                        <Badge key={field} variant="outline">
+                          {field}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 self-start lg:sticky lg:top-20">
         <Card>
           <CardHeader>
             <CardDescription>Суммы</CardDescription>

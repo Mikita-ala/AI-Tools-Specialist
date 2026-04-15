@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
   try {
     const order = extractRetailCrmOrderFromWebhook(payload);
-    await upsertOrderAndItems(order);
+    await upsertOrderAndItems(order, "webhook");
     const telegram = await maybeSendNewOrderAlert(order);
 
     return NextResponse.json({
