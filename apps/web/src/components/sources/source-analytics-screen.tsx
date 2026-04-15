@@ -110,17 +110,15 @@ export function SourceAnalyticsScreen({ orders }: { orders: OrderRecord[] }) {
     >
       <div className="grid gap-6 px-4 pb-6 lg:px-6">
         <div className="grid gap-4 xl:grid-cols-4">
-          <KpiCard label="Источников" value={String(metrics.length)} tone="info" />
-          <KpiCard label="Заказов в срезе" value={String(filteredOrders.length)} tone="default" />
+          <KpiCard label="Источников" value={String(metrics.length)} />
+          <KpiCard label="Заказов в срезе" value={String(filteredOrders.length)} />
           <KpiCard
             label="Выручка в срезе"
             value={`${money.format(filteredOrders.reduce((sum, order) => sum + order.totalAmount, 0))} ₸`}
-            tone="success"
           />
           <KpiCard
             label="Крупные заказы"
             value={String(filteredOrders.filter((order) => order.totalAmount > 50_000).length)}
-            tone="warning"
           />
         </div>
 
@@ -316,24 +314,12 @@ function SourcesChartTooltip({
 function KpiCard({
   label,
   value,
-  tone,
 }: {
   label: string;
   value: string;
-  tone: "default" | "success" | "warning" | "info";
 }) {
   return (
-    <Card
-      className={
-        tone === "success"
-          ? "border-success/20 bg-success/5"
-          : tone === "warning"
-            ? "border-warning/20 bg-warning/8"
-            : tone === "info"
-              ? "border-info/20 bg-info/8"
-              : undefined
-      }
-    >
+    <Card className="shadow-none">
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle>{value}</CardTitle>

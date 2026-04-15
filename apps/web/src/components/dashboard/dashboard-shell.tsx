@@ -60,7 +60,6 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const money = new Intl.NumberFormat("ru-RU");
-const compact = new Intl.NumberFormat("ru-RU", { notation: "compact", maximumFractionDigits: 1 });
 
 const chartConfig = {
   orders: { label: "Заказы", color: "var(--color-primary)" },
@@ -120,117 +119,137 @@ const formatOverviewChartTooltipValue = (value: number | string | Array<number |
   return String(normalizedValue);
 };
 
-const KpiCards = ({ snapshot }: { snapshot: DashboardSnapshot }) => {
-  const cards = [
-    {
-      label: "Общая выручка",
-      value: `${money.format(snapshot.stats.totalRevenue)} ₸`,
-      tone: "success" as const,
-    },
-    {
-      label: "Всего заказов",
-      value: compact.format(snapshot.stats.totalOrders),
-      tone: "info" as const,
-    },
-    {
-      label: "Средний чек",
-      value: `${money.format(snapshot.stats.averageOrderValue)} ₸`,
-      tone: "default" as const,
-    },
-    {
-      label: "Крупные заказы",
-      value: compact.format(snapshot.stats.highValueOrders),
-      tone: "warning" as const,
-    },
-    {
-      label: "Заказов сегодня",
-      value: compact.format(snapshot.stats.todayOrders),
-      tone: "info" as const,
-    },
-    {
-      label: "Выручка сегодня",
-      value: `${money.format(snapshot.stats.todayRevenue)} ₸`,
-      tone: "success" as const,
-    },
-    {
-      label: "Средний чек сегодня",
-      value: `${money.format(snapshot.stats.todayAverageOrderValue)} ₸`,
-      tone: "default" as const,
-    },
-    {
-      label: "Крупные сегодня",
-      value: compact.format(snapshot.stats.todayHighValueOrders),
-      tone: "danger" as const,
-    },
-  ];
+const getDateKey = (value: string | null) => {
+  if (!value) return null;
 
-  const mobileCards = [
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toISOString().slice(0, 10);
+};
+
+const formatSignedPercent = (value: number) => {
+  const absolute = Math.abs(value);
+  const fractionDigits = absolute >= 100 || Number.isInteger(absolute) ? 0 : 1;
+  const prefix = value > 0 ? "+" : value < 0 ? "-" : "";
+
+  return `${prefix}${absolute.toFixed(fractionDigits)}%`;
+};
+
+const formatSignedCount = (value: number) => {
+  if (value > 0) return `+${value}`;
+  if (value < 0) return String(value);
+  return "0";
+};
+
+const getPercentDelta = (current: number, previous: number) => {
+  if (previous === 0) {
+    if (current === 0) return 0;
+    return 100;
+  }
+
+  return ((current - previous) / previous) * 100;
+};
+
+const getBadgeVariant = (delta: number): "success" | "destructive" | "outline" => {
+  if (delta > 0) return "success";
+  if (delta < 0) return "destructive";
+  return "outline";
+};
+
+const KpiCards = ({
+  snapshot,
+  orders,
+}: {
+  snapshot: DashboardSnapshot;
+  orders: DashboardOrderRecord[];
+}) => {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const ordersByDay = orders.reduce<Map<string, DashboardOrderRecord[]>>((accumulator, order) => {
+    const dateKey = getDateKey(order.crmCreatedAt);
+
+    if (!dateKey) {
+      return accumulator;
+    }
+
+    const bucket = accumulator.get(dateKey) ?? [];
+    bucket.push(order);
+    accumulator.set(dateKey, bucket);
+
+    return accumulator;
+  }, new Map());
+  const sortedDays = Array.from(ordersByDay.keys()).sort((left, right) => left.localeCompare(right));
+  const previousDayKey = [...sortedDays].reverse().find((key) => key < todayKey);
+  const previousDayOrders = previousDayKey ? ordersByDay.get(previousDayKey) ?? [] : [];
+  const previousDayRevenue = previousDayOrders.reduce((sum, order) => sum + order.totalAmount, 0);
+  const previousDayAverageOrderValue =
+    previousDayOrders.length === 0 ? 0 : Math.round(previousDayRevenue / previousDayOrders.length);
+  const previousDayHighValueOrders = previousDayOrders.filter((order) => order.totalAmount > 50_000).length;
+
+  const cards = [
     {
       label: "Выручка",
       total: `${money.format(snapshot.stats.totalRevenue)} ₸`,
       today: `${money.format(snapshot.stats.todayRevenue)} ₸`,
-      tone: "success" as const,
+      trend: formatSignedPercent(getPercentDelta(snapshot.stats.todayRevenue, previousDayRevenue)),
+      trendVariant: getBadgeVariant(snapshot.stats.todayRevenue - previousDayRevenue),
     },
     {
       label: "Заказы",
-      total: compact.format(snapshot.stats.totalOrders),
-      today: compact.format(snapshot.stats.todayOrders),
-      tone: "info" as const,
+      total: String(snapshot.stats.totalOrders),
+      today: String(snapshot.stats.todayOrders),
+      trend: formatSignedCount(snapshot.stats.todayOrders - previousDayOrders.length),
+      trendVariant: getBadgeVariant(snapshot.stats.todayOrders - previousDayOrders.length),
     },
     {
       label: "Средний чек",
       total: `${money.format(snapshot.stats.averageOrderValue)} ₸`,
       today: `${money.format(snapshot.stats.todayAverageOrderValue)} ₸`,
-      tone: "default" as const,
+      trend: formatSignedPercent(
+        getPercentDelta(snapshot.stats.todayAverageOrderValue, previousDayAverageOrderValue),
+      ),
+      trendVariant: getBadgeVariant(
+        snapshot.stats.todayAverageOrderValue - previousDayAverageOrderValue,
+      ),
     },
     {
       label: "Крупные заказы",
-      total: compact.format(snapshot.stats.highValueOrders),
-      today: compact.format(snapshot.stats.todayHighValueOrders),
-      tone: "warning" as const,
+      total: String(snapshot.stats.highValueOrders),
+      today: String(snapshot.stats.todayHighValueOrders),
+      trend: formatSignedCount(snapshot.stats.todayHighValueOrders - previousDayHighValueOrders),
+      trendVariant: getBadgeVariant(
+        snapshot.stats.todayHighValueOrders - previousDayHighValueOrders,
+      ),
     },
   ];
 
-  const getCardClassName = (tone: (typeof cards)[number]["tone"]) =>
-    tone === "success"
-      ? "border-success/20 bg-linear-to-t from-success/8 to-card shadow-xs dark:bg-card"
-      : tone === "warning"
-        ? "border-warning/20 bg-linear-to-t from-warning/10 to-card shadow-xs dark:bg-card"
-        : tone === "danger"
-          ? "border-danger/20 bg-linear-to-t from-danger/10 to-card shadow-xs dark:bg-card"
-          : tone === "info"
-            ? "border-info/20 bg-linear-to-t from-info/10 to-card shadow-xs dark:bg-card"
-            : "bg-linear-to-t from-primary/5 to-card shadow-xs dark:bg-card";
-
   return (
-    <>
-      <div className="grid grid-cols-1 gap-4 px-4 min-[1060px]:hidden">
-        {mobileCards.map((item) => (
-          <Card key={item.label} className={getCardClassName(item.tone)}>
-            <CardHeader className="pb-3">
-              <CardDescription>{item.label}</CardDescription>
-              <CardTitle className="text-2xl font-semibold tabular-nums">{item.total}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-                <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Сегодня</span>
-                <span className="text-sm font-medium tabular-nums">{item.today}</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      <div className="hidden gap-4 px-4 min-[1060px]:grid min-[1060px]:grid-cols-2 xl:grid-cols-4 lg:px-6">
-        {cards.map((item) => (
-          <Card key={item.label} className={getCardClassName(item.tone)}>
-            <CardHeader>
-              <CardDescription>{item.label}</CardDescription>
-              <CardTitle className="text-2xl font-semibold tabular-nums">{item.value}</CardTitle>
-            </CardHeader>
-          </Card>
-        ))}
-      </div>
-    </>
+    <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 xl:grid-cols-4 lg:px-6">
+      {cards.map((item) => (
+        <Card key={item.label} className="gap-0 shadow-none">
+          <CardHeader className="gap-3">
+            <CardAction>
+              <Badge variant={item.trendVariant}>{item.trend}</Badge>
+            </CardAction>
+            <CardDescription>{item.label}</CardDescription>
+            <CardTitle className="text-3xl font-semibold tracking-tight tabular-nums">
+              {item.total}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+              <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
+                Сегодня
+              </span>
+              <span className="text-sm font-medium tabular-nums">{item.today}</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 };
 
@@ -666,7 +685,7 @@ export const DashboardShell = ({ orders, state, section }: DashboardShellProps) 
                 </CardContent>
               </Card>
             </div>
-            <KpiCards snapshot={filteredSnapshot} />
+            <KpiCards snapshot={filteredSnapshot} orders={filteredOrders} />
             {section === "overview" ? <OrdersInsightsSection snapshot={filteredSnapshot} /> : null}
             {section === "overview" ? <DistributionSection snapshot={filteredSnapshot} /> : null}
             {section === "orders" ? <OrdersInsightsSection snapshot={filteredSnapshot} /> : null}

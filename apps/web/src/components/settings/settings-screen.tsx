@@ -92,22 +92,18 @@ export function SettingsScreen({ totalOrders }: { totalOrders: number }) {
           <SettingsKpiCard
             label="Порог алерта"
             value={`${new Intl.NumberFormat("ru-RU").format(settings.rule.thresholdAmount)} ₸`}
-            tone="warning"
           />
           <SettingsKpiCard
             label="Правило"
             value={settings.rule.isEnabled ? "Включено" : "Выключено"}
-            tone={settings.rule.isEnabled ? "success" : "danger"}
           />
           <SettingsKpiCard
             label="Активные получатели"
             value={String(enabledRecipientsCount)}
-            tone="info"
           />
           <SettingsKpiCard
             label="Всего получателей"
             value={String(settings.recipients.length)}
-            tone="default"
           />
         </div>
 
@@ -205,26 +201,12 @@ export function SettingsScreen({ totalOrders }: { totalOrders: number }) {
 function SettingsKpiCard({
   label,
   value,
-  tone,
 }: {
   label: string;
   value: string;
-  tone: "default" | "success" | "warning" | "danger" | "info";
 }) {
   return (
-    <Card
-      className={
-        tone === "success"
-          ? "border-success/20 bg-success/5"
-          : tone === "warning"
-            ? "border-warning/20 bg-warning/8"
-            : tone === "danger"
-              ? "border-danger/20 bg-danger/8"
-              : tone === "info"
-                ? "border-info/20 bg-info/8"
-                : undefined
-      }
-    >
+    <Card className="shadow-none">
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle>{value}</CardTitle>
