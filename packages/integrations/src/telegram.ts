@@ -15,7 +15,6 @@ const formatItemsSummary = (
   }
 
   return items
-    .slice(0, 3)
     .map((item) => `• ${escapeHtml(item.productName)} × ${item.quantity}`)
     .join("\n");
 };

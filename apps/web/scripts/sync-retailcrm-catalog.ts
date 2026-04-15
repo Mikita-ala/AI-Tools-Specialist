@@ -10,13 +10,14 @@ const apiKey = process.env.RETAILCRM_API_KEY;
 
 const STOCK_LEVEL = 1000;
 const STORE_CODE = "warehouse";
+const DATA_DIR = path.resolve(process.cwd(), "../../data");
 
 const main = async () => {
   if (!baseUrl || !apiKey) {
     throw new Error("RETAILCRM_BASE_URL and RETAILCRM_API_KEY are required");
   }
 
-  const filePath = path.resolve(process.cwd(), "../../mock_orders.json");
+  const filePath = path.join(DATA_DIR, "mock_orders.json");
   const raw = await readFile(filePath, "utf8");
   const orders = JSON.parse(raw) as Array<{
     items?: Array<{ productName?: string }>;

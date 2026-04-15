@@ -32,8 +32,9 @@ const escapeCsv = (value: string | number) => {
 };
 
 const main = async () => {
-  const inputPath = path.resolve(process.cwd(), "../../mock_orders.json");
-  const outputPath = path.resolve(process.cwd(), "../../retailcrm-products-import.csv");
+  const dataDir = path.resolve(process.cwd(), "../../data");
+  const inputPath = path.join(dataDir, "mock_orders.json");
+  const outputPath = path.join(dataDir, "retailcrm-products-import.csv");
   const raw = await readFile(inputPath, "utf8");
   const orders = JSON.parse(raw) as MockOrder[];
 
