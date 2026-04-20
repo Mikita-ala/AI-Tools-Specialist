@@ -68,12 +68,12 @@ function CopyRow({
     <Button
       type="button"
       variant="ghost"
-      className="h-auto w-full justify-start gap-2 px-0 py-0 text-left font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+      className="h-auto w-full min-w-0 items-start justify-start gap-2 px-0 py-0 text-left font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
       onClick={() => copyValue(value, label)}
       title={value}
     >
-      <span className={truncate ? "truncate" : undefined}>{value}</span>
-      <Copy data-icon="inline-end" />
+      <span className={truncate ? "min-w-0 truncate" : "min-w-0 break-words whitespace-normal"}>{value}</span>
+      <Copy data-icon="inline-end" className="shrink-0" />
     </Button>
   );
 }
@@ -114,7 +114,7 @@ export function OrderDetailContent({
                 </div>
                 <div className="grid gap-1 text-sm text-muted-foreground">
                   <span className="font-medium text-foreground">{order.fullName}</span>
-                  <CopyRow label="Email" value={order.email} emptyLabel="Email не указан" truncate />
+                  <CopyRow label="Email" value={order.email} emptyLabel="Email не указан" />
                   <CopyRow label="Телефон" value={order.phone} emptyLabel="Телефон не указан" />
                 </div>
               </div>
@@ -231,52 +231,6 @@ export function OrderDetailContent({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardDescription>История синхронизаций</CardDescription>
-            <CardTitle>Таймлайн заказа</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4">
-            {order.timeline.length === 0 ? (
-              <div className="rounded-2xl border border-dashed px-4 py-6 text-sm text-muted-foreground">
-                Пока нет событий.
-              </div>
-            ) : (
-              order.timeline.map((event) => (
-                <div key={event.id} className="rounded-2xl border p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant={
-                        event.tone === "success"
-                          ? "success"
-                          : event.tone === "warning"
-                            ? "warning"
-                            : event.tone === "danger"
-                              ? "destructive"
-                              : event.tone === "info"
-                                ? "info"
-                                : "outline"
-                      }
-                    >
-                      {event.label}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">{formatDate(event.timestamp)}</span>
-                  </div>
-                  <p className="mt-3 text-sm text-muted-foreground">{event.description}</p>
-                  {event.changedFields.length > 0 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {event.changedFields.map((field) => (
-                        <Badge key={field} variant="outline">
-                          {field}
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <div className="grid gap-6 self-start lg:sticky lg:top-20">

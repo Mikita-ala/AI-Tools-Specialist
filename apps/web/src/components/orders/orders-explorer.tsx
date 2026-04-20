@@ -35,6 +35,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 const money = new Intl.NumberFormat("ru-RU");
 const PAGE_SIZE = 10;
 
+const formatMoney = (value: number) => `${money.format(value)}\u00A0₸`;
+
 const statusTone = (status: string) => {
   if (["complete", "partially-completed"].includes(status)) return "default";
   if (["cancel-other", "no-call", "no-product", "return"].includes(status)) return "destructive";
@@ -108,7 +110,7 @@ export function OrdersExplorer({
         <Card>
           <CardHeader>
             <CardDescription>Выручка за период</CardDescription>
-            <CardTitle>{money.format(totalRevenue)} ₸</CardTitle>
+            <CardTitle className="whitespace-nowrap">{formatMoney(totalRevenue)}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -164,7 +166,9 @@ export function OrdersExplorer({
                     <TableCell>
                       <Badge variant={statusTone(order.status)}>{translateStatus(order.status)}</Badge>
                     </TableCell>
-                    <TableCell className="text-right">{money.format(order.totalAmount)} ₸</TableCell>
+                    <TableCell className="whitespace-nowrap text-right tabular-nums">
+                      {formatMoney(order.totalAmount)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="outline"

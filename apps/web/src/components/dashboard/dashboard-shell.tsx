@@ -226,6 +226,11 @@ const KpiCards = ({
     },
   ];
 
+  const getCardValueClassName = (label: string) =>
+    label === "Выручка" || label === "Средний чек"
+      ? "text-[clamp(2rem,8vw,2.25rem)] sm:text-3xl"
+      : "text-[clamp(2rem,8vw,2.25rem)] sm:text-3xl";
+
   return (
     <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 xl:grid-cols-4 lg:px-6">
       {cards.map((item) => (
@@ -235,7 +240,9 @@ const KpiCards = ({
               <Badge variant={item.trendVariant}>{item.trend}</Badge>
             </CardAction>
             <CardDescription>{item.label}</CardDescription>
-            <CardTitle className="text-3xl font-semibold tracking-tight tabular-nums">
+            <CardTitle
+              className={`whitespace-nowrap leading-none font-semibold tracking-tight tabular-nums ${getCardValueClassName(item.label)}`}
+            >
               {item.total}
             </CardTitle>
           </CardHeader>
