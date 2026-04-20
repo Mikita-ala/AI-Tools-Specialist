@@ -226,24 +226,44 @@ const KpiCards = ({
     },
   ];
 
-  const getCardValueClassName = (label: string) =>
-    label === "Выручка" || label === "Средний чек"
-      ? "text-[clamp(2rem,8vw,2.25rem)] sm:text-3xl"
-      : "text-[clamp(2rem,8vw,2.25rem)] sm:text-3xl";
+  const renderMetricValue = (
+    value: string,
+    tone: "primary" | "secondary" = "primary",
+    stacked = false,
+  ) => {
+    if (!value.includes("₸")) {
+      return value;
+    }
+
+    const [amount] = value.split(" ₸");
+
+    return (
+      <span
+        className={
+          stacked
+            ? "inline-flex max-w-full flex-col items-start leading-none"
+            : "inline-flex items-baseline gap-1 whitespace-nowrap leading-none"
+        }
+      >
+        <span className={stacked ? "whitespace-normal break-words" : undefined}>{amount}</span>
+        <span className={tone === "primary" ? "text-[0.42em]" : "text-[0.49em]"}>₸</span>
+      </span>
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 xl:grid-cols-4 lg:px-6">
       {cards.map((item) => (
         <Card key={item.label} className="gap-0 shadow-none">
           <CardHeader className="gap-3">
-            <CardAction>
-              <Badge variant={item.trendVariant}>{item.trend}</Badge>
-            </CardAction>
-            <CardDescription>{item.label}</CardDescription>
-            <CardTitle
-              className={`whitespace-nowrap leading-none font-semibold tracking-tight tabular-nums ${getCardValueClassName(item.label)}`}
-            >
-              {item.total}
+            <div className="flex items-start justify-between gap-3">
+              <CardDescription className="pr-4">{item.label}</CardDescription>
+              <Badge variant={item.trendVariant} className="whitespace-nowrap">
+                {item.trend}
+              </Badge>
+            </div>
+            <CardTitle className="max-w-full text-[clamp(1.9rem,7vw,2.25rem)] leading-none font-semibold tracking-tight tabular-nums sm:text-3xl">
+              {renderMetricValue(item.total)}
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
@@ -251,7 +271,9 @@ const KpiCards = ({
               <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 Сегодня
               </span>
-              <span className="text-sm font-medium tabular-nums">{item.today}</span>
+              <span className="text-xs font-medium tabular-nums sm:text-sm">
+                {renderMetricValue(item.today, "secondary", false)}
+              </span>
             </div>
           </CardContent>
         </Card>
